@@ -17,8 +17,7 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 object DataProducer extends App {
 
-  case class DataModel(date: String,
-                       value: Double,
+  case class DataModel(value: Double,
                        place: String)
 
   final val globalIdAddress = "192.168.0.108"
@@ -57,7 +56,6 @@ object DataProducer extends App {
     // Request parameters and other properties.
     val params: util.ArrayList[NameValuePair] = new util.ArrayList[NameValuePair](2)
     params.add(new BasicNameValuePair("value", data.value.toString))
-    params.add(new BasicNameValuePair("date", data.date))
     params.add(new BasicNameValuePair("place", data.place))
     postRequest.setEntity(new UrlEncodedFormEntity(params, "UTF-8"))
 
@@ -65,22 +63,23 @@ object DataProducer extends App {
   }
   val randInstance = new Random(System.currentTimeMillis())
 
-  listOfAllTypes.map(dataType => {
-    val getUrlString = getUrlAddress(dataType)
-    val postUrlString = postUrlAddress(dataType)
-    val valueFromGet = JSON.parseFull(get(getUrlString).toString).get.asInstanceOf[Map[String, Any]]("value").toString.toDouble
-    for (i <- 0 until 5)
-      yield {
-        val valueFromNormalDistribution = new NormalDistribution(valueFromGet,1.0)
-        val dataModel = DataModel(
-          date = System.currentTimeMillis.toString,
-          value = BigDecimal(valueFromNormalDistribution.sample()).setScale(1,BigDecimal.RoundingMode.HALF_UP).doubleValue(),
-            place = {
-            val randomIndex = randInstance.nextInt(amountOfPlaces)
-            listOfPlaces(randomIndex)
-          })
-        //post(postUrlString,dataModel)
-        sendKafkaMessage(dataModel,temperature)
-      }
-  })
+  while(true) {
+    Thread.sleep(1000)
+    listOfAllTypes.map(dataType => {
+      val getUrlString = getUrlAddress(dataType)
+      val postUrlString = postUrlAddress(dataType)
+      val valueFromGet = JSON.parseFull(get(getUrlString).toString).get.asInstanceOf[Map[String, Any]]("value").toString.toDouble
+      for (osiedle <- listOfPlaces)
+        yield {
+          val valueFromNormalDistribution = new NormalDistribution(valueFromGet, 1.0)
+          val dataModel = DataModel(
+            value = BigDecimal(valueFromNormalDistribution.sample()).setScale(1, BigDecimal.RoundingMode.HALF_UP).doubleValue(),
+            place = osiedle
+          )
+          //post(postUrlString,dataModel)
+          println(dataModel)
+          sendKafkaMessage(dataModel, dataType)
+        }
+    })
+  }
 }
