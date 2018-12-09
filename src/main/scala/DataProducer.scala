@@ -22,7 +22,7 @@ object DataProducer extends App {
 
   final val globalIdAddress = "192.168.0.108"
   final val amountOfPlaces = 20
-  final val listOfPlaces: Seq[String] = for (i <- 0 until amountOfPlaces) yield "Osiedle" + i
+  final val listOfPlaces: Seq[String] = for (i <- 0 until amountOfPlaces) yield "Osiedle " + i
   final def getUrlAddress(dataType: String) = s"http://$globalIdAddress:8000/api/$dataType/newest/?format=json"
   final def postUrlAddress(dataType: String) = s"http://$globalIdAddress:8000/api/$dataType/"
   final val kafkaAddress = s"$globalIdAddress:port,$globalIdAddress:port"
@@ -71,17 +71,16 @@ object DataProducer extends App {
 
   while(true) {
     Thread.sleep(1000)
-    listOfAllTypes.map(dataType => {
-      for (initialValue <- initialValues)
-        yield {
-          val valueFromNormalDistribution = new NormalDistribution(initialValue._2, 3.0)
-          val dataModel = DataModel(
-            value = BigDecimal(valueFromNormalDistribution.sample()).setScale(1, BigDecimal.RoundingMode.HALF_UP).doubleValue(),
-            place = initialValue._1
-          )
-          println(dataModel)
-          sendKafkaMessage(dataModel, dataType)
-        }
+    initialValues.map(dataType => {
+      for (osiedle <- listOfPlaces) {
+        val valueFromNormalDistribution = new NormalDistribution(dataType._2, 3.0)
+        val dataModel = DataModel(
+          value = BigDecimal(valueFromNormalDistribution.sample()).setScale(1, BigDecimal.RoundingMode.HALF_UP).doubleValue(),
+          place = osiedle
+        )
+        println(dataModel + dataType._1)
+        sendKafkaMessage(dataModel, dataType._1)
+      }
     })
   }
 }
