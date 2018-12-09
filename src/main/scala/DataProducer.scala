@@ -62,21 +62,23 @@ object DataProducer extends App {
     client.execute(postRequest)
   }
   val randInstance = new Random(System.currentTimeMillis())
+  val initialValues = {
+    for (dataType <- listOfAllTypes) yield {
+      val getUrlString = getUrlAddress(dataType)
+      (dataType,JSON.parseFull(get(getUrlString).toString).get.asInstanceOf[Map[String, Any]]("value").toString.toDouble)
+    }
+  }
 
   while(true) {
     Thread.sleep(1000)
     listOfAllTypes.map(dataType => {
-      val getUrlString = getUrlAddress(dataType)
-      val postUrlString = postUrlAddress(dataType)
-      val valueFromGet = JSON.parseFull(get(getUrlString).toString).get.asInstanceOf[Map[String, Any]]("value").toString.toDouble
-      for (osiedle <- listOfPlaces)
+      for (initialValue <- initialValues)
         yield {
-          val valueFromNormalDistribution = new NormalDistribution(valueFromGet, 1.0)
+          val valueFromNormalDistribution = new NormalDistribution(initialValue._2, 3.0)
           val dataModel = DataModel(
             value = BigDecimal(valueFromNormalDistribution.sample()).setScale(1, BigDecimal.RoundingMode.HALF_UP).doubleValue(),
-            place = osiedle
+            place = initialValue._1
           )
-          //post(postUrlString,dataModel)
           println(dataModel)
           sendKafkaMessage(dataModel, dataType)
         }
